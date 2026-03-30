@@ -721,6 +721,12 @@ pub fn execute_evm_test_suite(
         }
         let genesis_contracts = GENESIS_CONTRACTS.with(Clone::clone);
         for (address, code_hash, bytecode) in genesis_contracts.iter() {
+            // Keep fixture-provided account/code when present.
+            // Historical fixtures may target older on-chain system runtime bytecode.
+            if fluent_cache_state.accounts.contains_key(address) {
+                continue;
+            }
+
             let acc_info = AccountInfo {
                 balance: U256::ZERO,
                 nonce: 0,
@@ -909,6 +915,8 @@ pub fn execute_fluent_test_suite(
 
         let cache_state = evm_cache_state(&unit);
         let (mut cfg_env, block_env, mut tx_env) = prepare_env(&unit, &name)?;
+        // Fluent fixtures are generated from Fluent testnet transactions.
+        cfg_env.chain_id = 20994;
 
         for (spec_name, tests) in unit.post {
             // Fluent is post-PRAGUE only
@@ -928,6 +936,7 @@ pub fn execute_fluent_test_suite(
                     );
                 }
                 fill_tx_env(&mut tx_env, &unit.transaction, &test);
+                tx_env.chain_id = Some(cfg_env.chain_id);
 
                 let mut cache = cache_state.clone();
                 cache.set_state_clear_flag(spec_id.is_enabled_in(SpecId::SPURIOUS_DRAGON));
